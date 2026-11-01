@@ -3,15 +3,43 @@
   "title": "SnapFrame Premium",
   "description": "Premium features for SnapFrame: speaker highlight and more. Requires SnapFrame. / Recursos premium do SnapFrame: destaque de quem fala e mais. Requer o SnapFrame.",
   "version": "0.1.0",
-  "authors": [{ "name": "Angelo Magno (Ecos da Humanidade)" }],
-  "compatibility": { "minimum": "12", "verified": "13" },
-  "relationships": {
-    "requires": [{ "id": "mesa-de-cameras", "type": "module", "compatibility": { "minimum": "2.1.3" } }]
-  },
-  "esmodules": ["scripts/main.js"],
-  "languages": [
-    { "lang": "en", "name": "English", "path": "lang/en.json" },
-    { "lang": "pt-BR", "name": "Português (Brasil)", "path": "lang/pt-BR.json" }
+  "authors": [
+    {
+      "name": "Angelo Magno (Ecos da Humanidade)"
+    }
   ],
-  "protected": false
+  "compatibility": {
+    "minimum": "12",
+    "verified": "13"
+  },
+  "relationships": {
+    "requires": [
+      {
+        "id": "mesa-de-cameras",
+        "type": "module",
+        "compatibility": {
+          "minimum": "2.1.3"
+        }
+      }
+    ]
+  },
+  "esmodules": [
+    "scripts/main.js"
+  ],
+  "languages": [
+    {
+      "lang": "en",
+      "name": "English",
+      "path": "lang/en.json"
+    },
+    {
+      "lang": "pt-BR",
+      "name": "Português (Brasil)",
+      "path": "lang/pt-BR.json"
+    }
+  ],
+  "protected": false,
+  "url": "https://github.com/angelomagnoBR/snapframe-premium",
+  "manifest": "https://raw.githubusercontent.com/angelomagnoBR/snapframe-premium/main/module.json",
+  "download": "https://github.com/angelomagnoBR/snapframe-premium/raw/main/snapframe-premium.zip"
 }
