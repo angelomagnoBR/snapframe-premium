@@ -2,7 +2,7 @@
   "id": "snapframe-premium",
   "title": "SnapFrame Premium",
   "description": "Premium features for SnapFrame: speaker highlight and more. Requires SnapFrame. / Recursos premium do SnapFrame: destaque de quem fala e mais. Requer o SnapFrame.",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "authors": [
     {
       "name": "Angelo Magno (Ecos da Humanidade)"
@@ -39,5 +39,6 @@
   "protected": false,
   "url": "https://github.com/angelomagnoBR/snapframe-premium",
   "manifest": "https://raw.githubusercontent.com/angelomagnoBR/snapframe-premium/main/module.json",
-  "download": "https://github.com/angelomagnoBR/snapframe-premium/raw/main/snapframe-premium.zip"
+  "download": "https://github.com/angelomagnoBR/snapframe-premium/raw/main/snapframe-premium.zip",
+  "socket": true
 }

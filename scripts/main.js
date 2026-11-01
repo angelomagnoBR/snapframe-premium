@@ -16,20 +16,100 @@ const FADE = 0.18;       // suavidade da transição (0 a 1, maior = mais rápid
 /*  Quem está falando                           */
 /* -------------------------------------------- */
 
+const SOCKET = `module.${MOD}`;
+const REMOTE_TTL = 1600;           // sem notícia por esse tempo = parou de falar
+const remote = new Map();          // userId → horário da última notícia de "falando"
+const foundrySpeaking = new Map(); // userId → horário em que o Foundry disse "falando"
+
 /**
- * Descobre se um usuário está falando agora.
- * Usa o estado de voz do próprio Foundry e, como reserva, a classe "speaking"
- * que o Foundry coloca na câmera do dock padrão.
+ * Detecção pela voz no microfone do próprio jogador.
+ * Funciona mesmo quando a conversa acontece no Discord: o áudio não é enviado
+ * para ninguém, só o aviso "estou falando".
  */
+const Voice = {
+  stream: null, ctx: null, analyser: null, data: null, timer: null, beat: null,
+  speaking: false, lastLoud: 0,
+
+  enabled() { return game.settings.get(MOD, "micDetect"); },
+
+  async start() {
+    if (this.stream || !this.enabled() || !navigator.mediaDevices?.getUserMedia) return;
+    try {
+      this.stream = await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }, video: false
+      });
+    } catch (e) {
+      this.stream = null;
+      ui.notifications.warn(game.i18n.localize("SFP.MicDenied"));
+      return;
+    }
+    this.ctx = new AudioContext();
+    const src = this.ctx.createMediaStreamSource(this.stream);
+    this.analyser = this.ctx.createAnalyser();
+    this.analyser.fftSize = 1024;
+    src.connect(this.analyser);
+    this.data = new Float32Array(this.analyser.fftSize);
+    // O navegador só libera o áudio depois de um clique
+    const resume = () => this.ctx?.state === "suspended" && this.ctx.resume();
+    document.addEventListener("pointerdown", resume);
+    document.addEventListener("keydown", resume);
+    resume();
+    this.timer = setInterval(() => this.check(), 80);
+    // Enquanto fala, repete o aviso para quem entrou depois ou perdeu a mensagem
+    this.beat = setInterval(() => { if (this.speaking) this.send(true); }, 700);
+  },
+
+  stop() {
+    clearInterval(this.timer); clearInterval(this.beat); this.timer = this.beat = null;
+    this.stream?.getTracks().forEach(t => t.stop());
+    try { this.ctx?.close(); } catch (e) { /* ignora */ }
+    this.stream = this.ctx = this.analyser = this.data = null;
+    if (this.speaking) { this.speaking = false; this.send(false); }
+  },
+
+  check() {
+    if (!this.analyser) return;
+    this.analyser.getFloatTimeDomainData(this.data);
+    let sum = 0;
+    for (const v of this.data) sum += v * v;
+    const db = 20 * Math.log10(Math.sqrt(sum / this.data.length) || 1e-8);
+    const now = Date.now();
+    if (db > Number(game.settings.get(MOD, "micThreshold"))) this.lastLoud = now;
+    const speaking = now - this.lastLoud < HOLD_MS;
+    if (speaking !== this.speaking) { this.speaking = speaking; this.send(speaking); }
+  },
+
+  send(speaking) {
+    const now = Date.now();
+    if (speaking) remote.set(game.user.id, now); else remote.delete(game.user.id);
+    game.socket.emit(SOCKET, { type: "speaking", user: game.user.id, speaking });
+  }
+};
+
+/** Também escuta o que o próprio Foundry diz sobre quem está falando (voz pelo Foundry). */
+function wrapFoundrySpeaking() {
+  for (const target of [game.webrtc, ui.webrtc]) {
+    const orig = target?.setUserIsSpeaking;
+    if (typeof orig !== "function" || orig._sfpWrapped) continue;
+    const wrapped = function(userId, speaking, ...rest) {
+      if (speaking) foundrySpeaking.set(userId, Date.now()); else foundrySpeaking.delete(userId);
+      return orig.call(this, userId, speaking, ...rest);
+    };
+    wrapped._sfpWrapped = true;
+    target.setUserIsSpeaking = wrapped;
+  }
+}
+
 function isSpeaking(userId, api) {
+  const now = Date.now();
+  const r = remote.get(userId);
+  if (r && now - r < REMOTE_TTL) return true;
+  if (foundrySpeaking.has(userId)) return true;
   try {
-    const act = game.webrtc?.settings?.activity?.[userId];
-    if (act?.speaking) return true;
+    if (game.webrtc?.settings?.activity?.[userId]?.speaking) return true;
   } catch (e) { /* ignora */ }
   const view = api?.dockViewFor?.(userId);
-  if (view?.classList?.contains("speaking")) return true;
-  const parent = view?.closest?.(".camera-view");
-  return !!parent?.classList?.contains("speaking");
+  return !!(view?.classList?.contains("speaking") || view?.closest?.(".camera-view")?.classList?.contains("speaking"));
 }
 
 /* -------------------------------------------- */
@@ -98,7 +178,7 @@ const Highlight = {
     for (const f of this.frames.values()) {
       const userId = f.d.slot.user;
       if (userId && isSpeaking(userId, this.api)) f.lastSpoke = now;
-      f.speaking = !!userId && now - f.lastSpoke < HOLD_MS;
+      f.speaking = (!!userId && now - f.lastSpoke < HOLD_MS) || (f.forceUntil ?? 0) > now;
     }
   },
 
@@ -129,6 +209,12 @@ const Highlight = {
     this.overlay = null;
   },
 
+  /** Acende todas as molduras por alguns segundos, para testar o visual. */
+  test(seconds = 4) {
+    if (!this.frames.size) return ui.notifications.warn(game.i18n.localize("SFP.NoTable"));
+    for (const f of this.frames.values()) f.forceUntil = Date.now() + seconds * 1000;
+  },
+
   rebuild() {
     const overlay = this.api?.overlay;
     if (overlay?.layer) this.attach(overlay);
@@ -155,6 +241,16 @@ Hooks.once("init", () => {
     scope: "world", config: true, type: Number, default: 6,
     range: { min: 2, max: 20, step: 1 }, onChange
   });
+  game.settings.register(MOD, "micDetect", {
+    name: "SFP.MicDetect.Name", hint: "SFP.MicDetect.Hint",
+    scope: "client", config: true, type: Boolean, default: true,
+    onChange: on => on ? Voice.start() : Voice.stop()
+  });
+  game.settings.register(MOD, "micThreshold", {
+    name: "SFP.MicThreshold.Name", hint: "SFP.MicThreshold.Hint",
+    scope: "client", config: true, type: Number, default: -50,
+    range: { min: -70, max: -20, step: 1 }
+  });
   game.settings.register(MOD, "dim", {
     name: "SFP.Dim.Name", hint: "SFP.Dim.Hint",
     scope: "client", config: true, type: Number, default: 0.35,
@@ -168,6 +264,13 @@ Hooks.once("ready", () => {
     return;
   }
   Highlight.api = game.modules.get(BASE).api ?? null;
+  game.modules.get(MOD).api = { test: s => Highlight.test(s), voice: Voice };
+  wrapFoundrySpeaking();
+  game.socket.on(SOCKET, msg => {
+    if (msg?.type !== "speaking" || !msg.user) return;
+    if (msg.speaking) remote.set(msg.user, Date.now()); else remote.delete(msg.user);
+  });
+  Voice.start();
   // A mesa pode já ter sido montada antes deste módulo carregar
   Highlight.rebuild();
 });

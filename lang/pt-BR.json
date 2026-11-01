@@ -7,5 +7,11 @@
   "SFP.Width.Hint": "Espessura da moldura de quem fala, em pixels.",
   "SFP.Dim.Name": "Escurecer quem não está falando",
   "SFP.Dim.Hint": "Quanto escurecer as câmeras de quem não está falando. 0 = desligado.",
-  "SFP.Missing": "O SnapFrame Premium precisa do módulo SnapFrame instalado e ativado."
+  "SFP.Missing": "O SnapFrame Premium precisa do módulo SnapFrame instalado e ativado.",
+  "SFP.MicDetect.Name": "Detectar minha voz pelo microfone",
+  "SFP.MicDetect.Hint": "Escuta o seu microfone só para saber quando você fala (funciona com Discord). Nenhum áudio é enviado para ninguém.",
+  "SFP.MicThreshold.Name": "Sensibilidade do microfone",
+  "SFP.MicThreshold.Hint": "Volume necessário para contar como fala, em dB. Mais baixo = mais sensível. Se acender com barulho de fundo, aumente.",
+  "SFP.MicDenied": "SnapFrame Premium: o acesso ao microfone foi negado, então sua voz não vai acender sua moldura.",
+  "SFP.NoTable": "SnapFrame Premium: não há mesa de câmeras ativa nesta cena."
 }
