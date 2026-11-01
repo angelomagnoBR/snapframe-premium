@@ -237,6 +237,26 @@ async function loadTex(src) {
   return tex;
 }
 
+/**
+ * Posição do retrato dentro da área, em pixels a partir do centro.
+ * Usa a posição escolhida no editor (slot.portrait) ou o canto padrão.
+ * slot.portrait = { x, y, s }: centro em fração da largura/altura (0 a 1) e diâmetro em fração do menor lado.
+ */
+function portraitPos(slot, w, h, corner, pct) {
+  const p = slot?.portrait;
+  if (p && Number.isFinite(p.x) && Number.isFinite(p.y)) {
+    const r = Math.min(w, h) * (p.s || pct) / 2;
+    return { x: -w / 2 + p.x * w, y: -h / 2 + p.y * h, r };
+  }
+  const r = Math.min(w, h) * pct / 2;
+  const m = Math.max(6, r * 0.25);
+  return {
+    x: corner.endsWith("left") ? -w / 2 + m + r : w / 2 - m - r,
+    y: corner.startsWith("top") ? -h / 2 + m + r : h / 2 - m - r,
+    r
+  };
+}
+
 const Portrait = {
   items: new Map(),   // slot.id → { d, cont, sprite, mask, ring, src }
   timer: null,
@@ -271,10 +291,8 @@ const Portrait = {
     for (const it of this.items.values()) {
       const { w, h } = it.d;
       if (!w || !h) continue;
-      const r = Math.min(w, h) * pct / 2;
-      const m = Math.max(6, r * 0.25);
-      const x = corner.endsWith("left") ? -w / 2 + m + r : w / 2 - m - r;
-      const y = corner.startsWith("top") ? -h / 2 + m + r : h / 2 - m - r;
+      const pos = portraitPos(it.d.slot, w, h, corner, pct);
+      const r = pos.r, x = pos.x, y = pos.y;
       it.cont.position.set(x, y);
       it.r = r;
       it.mask.clear().beginFill(0xffffff).drawCircle(0, 0, r).endFill();
@@ -325,6 +343,88 @@ const Portrait = {
     else this.detach();
   }
 };
+
+
+/* -------------------------------------------- */
+/*  Retrato no editor da mesa                   */
+/* -------------------------------------------- */
+
+/**
+ * Coloca um círculo arrastável em cada área do editor para escolher onde o retrato aparece.
+ * Arrastar: move. Roda do mouse: muda o tamanho. Clique direito: volta ao canto padrão.
+ */
+function editorPortraitMarker({ box, slot }) {
+  if (!game.settings.get(MOD, "portrait")) return;
+  const corner = game.settings.get(MOD, "portraitCorner");
+  const pct = Number(game.settings.get(MOD, "portraitSize")) || 0.28;
+  const user = slot.user ? game.users.get(slot.user) : null;
+  const img = user?.character?.img;
+
+  const mk = document.createElement("div");
+  mk.className = "sfp-ed-portrait";
+  mk.title = game.i18n.localize("SFP.Editor.Marker");
+  Object.assign(mk.style, {
+    position: "absolute", borderRadius: "50%", border: `2px solid ${game.settings.get(MOD, "color") || "#E2B866"}`,
+    boxShadow: "0 0 0 2px rgba(0,0,0,.6)", cursor: "move", zIndex: 5, boxSizing: "border-box",
+    background: img ? `center / cover no-repeat url("${img}")` : "rgba(226,184,102,.35)",
+    display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: "14px"
+  });
+  if (!img) mk.innerHTML = '<i class="fas fa-user"></i>';
+  box.appendChild(mk);
+
+  const place = () => {
+    const w = box.offsetWidth, h = box.offsetHeight;
+    if (!w || !h) return;
+    const pos = portraitPos(slot, w, h, corner, pct);
+    Object.assign(mk.style, {
+      width: `${pos.r * 2}px`, height: `${pos.r * 2}px`,
+      left: `${w / 2 + pos.x - pos.r}px`, top: `${h / 2 + pos.y - pos.r}px`
+    });
+  };
+  requestAnimationFrame(place);
+  new ResizeObserver(place).observe(box);
+
+  // Garante que o retrato tenha uma posição própria antes de mexer
+  const own = () => {
+    if (slot.portrait) return;
+    const w = box.offsetWidth, h = box.offsetHeight;
+    const pos = portraitPos(slot, w, h, corner, pct);
+    slot.portrait = { x: (pos.x + w / 2) / w, y: (pos.y + h / 2) / h, s: pct };
+  };
+
+  mk.addEventListener("pointerdown", ev => {
+    if (ev.button !== 0) return;
+    ev.stopPropagation(); ev.preventDefault();
+    own();
+    const w = box.offsetWidth, h = box.offsetHeight;
+    const a = -(slot.rot || 0) * Math.PI / 180, c = Math.cos(a), s = Math.sin(a);
+    const sx = ev.clientX, sy = ev.clientY, o = { ...slot.portrait };
+    const clamp = v => Math.min(1, Math.max(0, v));
+    const move = e => {
+      const dx = e.clientX - sx, dy = e.clientY - sy;
+      // Converte o movimento do mouse para o sistema girado da área
+      const lx = dx * c - dy * s, ly = dx * s + dy * c;
+      slot.portrait.x = clamp(o.x + lx / w);
+      slot.portrait.y = clamp(o.y + ly / h);
+      place();
+    };
+    const up = () => { window.removeEventListener("pointermove", move); window.removeEventListener("pointerup", up); };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+  });
+  mk.addEventListener("wheel", ev => {
+    ev.preventDefault(); ev.stopPropagation();
+    own();
+    const step = ev.deltaY < 0 ? 0.02 : -0.02;
+    slot.portrait.s = Math.min(0.9, Math.max(0.08, (slot.portrait.s || pct) + step));
+    place();
+  }, { passive: false });
+  mk.addEventListener("contextmenu", ev => {
+    ev.preventDefault(); ev.stopPropagation();
+    delete slot.portrait;
+    place();
+  });
+}
 
 /* -------------------------------------------- */
 /*  Configurações e ganchos                     */
@@ -411,3 +511,4 @@ Hooks.on("snapframeBuilt", overlay => {
 Hooks.on("snapframeLayout", () => { Highlight.layout(); Portrait.layout(); });
 Hooks.on("snapframeDestroy", () => { Highlight.detach(); Portrait.detach(); });
 Hooks.on("updateUser", (user, changes) => { if ("character" in changes) Portrait.refresh(); });
+Hooks.on("snapframeEditorSlot", editorPortraitMarker);

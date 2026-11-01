@@ -27,5 +27,6 @@
   "SFP.When.Name": "Mostrar retrato",
   "SFP.When.Hint": "Só com a câmera ligada (desligada, a imagem do personagem já ocupa a moldura) ou sempre.",
   "SFP.When.Camera": "Só com a câmera ligada",
-  "SFP.When.Always": "Sempre"
+  "SFP.When.Always": "Sempre",
+  "SFP.Editor.Marker": "Retrato do personagem: arraste para mover, roda do mouse para o tamanho, clique direito para voltar ao canto padrão."
 }

@@ -27,5 +27,6 @@
   "SFP.When.Name": "Show portrait",
   "SFP.When.Hint": "Only when the camera is on (when it's off, the character image already fills the frame) or always.",
   "SFP.When.Camera": "Only with camera on",
-  "SFP.When.Always": "Always"
+  "SFP.When.Always": "Always",
+  "SFP.Editor.Marker": "Character portrait: drag to move, mouse wheel to resize, right-click to reset to the default corner."
 }
