@@ -1,0 +1,11 @@
+{
+  "SFP.Highlight.Name": "Destaque de quem fala",
+  "SFP.Highlight.Hint": "Desenha uma moldura brilhante em volta de quem está falando.",
+  "SFP.Color.Name": "Cor do destaque",
+  "SFP.Color.Hint": "Cor da moldura de quem fala, em hexadecimal (ex.: #E2B866).",
+  "SFP.Width.Name": "Espessura da moldura",
+  "SFP.Width.Hint": "Espessura da moldura de quem fala, em pixels.",
+  "SFP.Dim.Name": "Escurecer quem não está falando",
+  "SFP.Dim.Hint": "Quanto escurecer as câmeras de quem não está falando. 0 = desligado.",
+  "SFP.Missing": "O SnapFrame Premium precisa do módulo SnapFrame instalado e ativado."
+}

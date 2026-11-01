@@ -1,0 +1,11 @@
+{
+  "SFP.Highlight.Name": "Speaker highlight",
+  "SFP.Highlight.Hint": "Draws a glowing frame around whoever is speaking.",
+  "SFP.Color.Name": "Highlight color",
+  "SFP.Color.Hint": "Color of the speaking frame, in hex (e.g. #E2B866).",
+  "SFP.Width.Name": "Frame thickness",
+  "SFP.Width.Hint": "Thickness of the speaking frame, in pixels.",
+  "SFP.Dim.Name": "Dim who is not speaking",
+  "SFP.Dim.Hint": "How much to darken the cameras of people who are not speaking. 0 = off.",
+  "SFP.Missing": "SnapFrame Premium needs the SnapFrame module installed and enabled."
+}
