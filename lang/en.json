@@ -13,5 +13,19 @@
   "SFP.MicThreshold.Name": "Microphone sensitivity",
   "SFP.MicThreshold.Hint": "Volume needed to count as speaking, in dB. Lower = more sensitive. If it lights up with background noise, raise it.",
   "SFP.MicDenied": "SnapFrame Premium: microphone access was denied, so your voice will not light up your frame.",
-  "SFP.NoTable": "SnapFrame Premium: there is no active camera table in this scene."
+  "SFP.NoTable": "SnapFrame Premium: there is no active camera table in this scene.",
+  "SFP.Portrait.Name": "Character portrait in the corner",
+  "SFP.Portrait.Hint": "Shows each player's linked character portrait in a corner of their camera.",
+  "SFP.Corner.Name": "Portrait corner",
+  "SFP.Corner.Hint": "Which corner of the camera shows the portrait.",
+  "SFP.Corner.BR": "Bottom right",
+  "SFP.Corner.BL": "Bottom left",
+  "SFP.Corner.TR": "Top right",
+  "SFP.Corner.TL": "Top left",
+  "SFP.PSize.Name": "Portrait size",
+  "SFP.PSize.Hint": "Portrait diameter as a share of the camera's height.",
+  "SFP.When.Name": "Show portrait",
+  "SFP.When.Hint": "Only when the camera is on (when it's off, the character image already fills the frame) or always.",
+  "SFP.When.Camera": "Only with camera on",
+  "SFP.When.Always": "Always"
 }

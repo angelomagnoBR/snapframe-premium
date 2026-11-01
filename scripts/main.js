@@ -223,11 +223,138 @@ const Highlight = {
 };
 
 /* -------------------------------------------- */
+/*  Retrato do personagem no canto              */
+/* -------------------------------------------- */
+
+const texCache = new Map();
+async function loadTex(src) {
+  if (!src) return null;
+  if (texCache.has(src)) return texCache.get(src);
+  const fn = foundry.canvas?.loadTexture ?? globalThis.loadTexture;
+  let tex = null;
+  try { tex = await fn(src); } catch (e) { tex = null; }
+  texCache.set(src, tex);
+  return tex;
+}
+
+const Portrait = {
+  items: new Map(),   // slot.id → { d, cont, sprite, mask, ring, src }
+  timer: null,
+
+  enabled() { return game.settings.get(MOD, "portrait"); },
+
+  attach(overlay) {
+    this.detach();
+    if (!this.enabled() || !overlay?.layer) return;
+    for (const d of overlay.slotEls.values()) {
+      const cont = new PIXI.Container();
+      const sprite = new PIXI.Sprite(PIXI.Texture.EMPTY);
+      sprite.anchor.set(0.5);
+      const mask = new PIXI.Graphics();
+      const ring = new PIXI.Graphics();
+      sprite.mask = mask;
+      cont.addChild(sprite, mask, ring);
+      cont.visible = false;
+      // Logo acima do vídeo e abaixo da moldura de destaque
+      d.box.addChildAt(cont, Math.min(1, d.box.children.length));
+      this.items.set(d.slot.id, { d, cont, sprite, mask, ring, src: null });
+    }
+    this.layout();
+    this.refresh();
+    this.timer = setInterval(() => this.refresh(), 700);
+  },
+
+  layout() {
+    const corner = game.settings.get(MOD, "portraitCorner");
+    const pct = Number(game.settings.get(MOD, "portraitSize")) || 0.28;
+    const color = Highlight.color();
+    for (const it of this.items.values()) {
+      const { w, h } = it.d;
+      if (!w || !h) continue;
+      const r = Math.min(w, h) * pct / 2;
+      const m = Math.max(6, r * 0.25);
+      const x = corner.endsWith("left") ? -w / 2 + m + r : w / 2 - m - r;
+      const y = corner.startsWith("top") ? -h / 2 + m + r : h / 2 - m - r;
+      it.cont.position.set(x, y);
+      it.r = r;
+      it.mask.clear().beginFill(0xffffff).drawCircle(0, 0, r).endFill();
+      it.ring.clear().lineStyle(Math.max(2, r * 0.08), color, 1, 0.5).drawCircle(0, 0, r);
+      this.fit(it);
+    }
+  },
+
+  fit(it) {
+    const tw = it.sprite.texture?.width || 0, th = it.sprite.texture?.height || 0;
+    if (!tw || !th || !it.r) return false;
+    const s = (it.r * 2) / Math.min(tw, th);
+    it.sprite.scale.set(s, s);
+    return true;
+  },
+
+  refresh() {
+    const when = game.settings.get(MOD, "portraitWhen");
+    for (const it of this.items.values()) {
+      const user = it.d.slot.user ? game.users.get(it.d.slot.user) : null;
+      const src = user?.character?.img ?? "";
+      const bad = !src || src.includes("mystery-man");
+      if (it.src !== src) {
+        it.src = src;
+        it.ready = false;
+        loadTex(bad ? null : src).then(tex => {
+          if (it.src !== src || it.sprite.destroyed) return;
+          it.sprite.texture = tex ?? PIXI.Texture.EMPTY;
+          it.ready = !!tex && this.fit(it);
+        });
+      }
+      const camOk = when === "always" || !!it.d.showing;
+      it.cont.visible = !!user && !bad && !!it.ready && camOk;
+    }
+  },
+
+  detach() {
+    clearInterval(this.timer); this.timer = null;
+    for (const it of this.items.values()) {
+      if (!it.cont.destroyed) { it.cont.parent?.removeChild(it.cont); it.cont.destroy({ children: true }); }
+    }
+    this.items.clear();
+  },
+
+  rebuild() {
+    const overlay = Highlight.api?.overlay ?? game.modules.get(BASE)?.api?.overlay;
+    if (overlay?.layer) this.attach(overlay);
+    else this.detach();
+  }
+};
+
+/* -------------------------------------------- */
 /*  Configurações e ganchos                     */
 /* -------------------------------------------- */
 
 Hooks.once("init", () => {
-  const onChange = () => Highlight.rebuild();
+  const onChange = () => { Highlight.rebuild(); Portrait.rebuild(); };
+  const onPortrait = () => Portrait.rebuild();
+  game.settings.register(MOD, "portrait", {
+    name: "SFP.Portrait.Name", hint: "SFP.Portrait.Hint",
+    scope: "world", config: true, type: Boolean, default: true, onChange: onPortrait
+  });
+  game.settings.register(MOD, "portraitCorner", {
+    name: "SFP.Corner.Name", hint: "SFP.Corner.Hint",
+    scope: "world", config: true, type: String, default: "bottom-right",
+    choices: {
+      "bottom-right": "SFP.Corner.BR", "bottom-left": "SFP.Corner.BL",
+      "top-right": "SFP.Corner.TR", "top-left": "SFP.Corner.TL"
+    }, onChange: onPortrait
+  });
+  game.settings.register(MOD, "portraitSize", {
+    name: "SFP.PSize.Name", hint: "SFP.PSize.Hint",
+    scope: "world", config: true, type: Number, default: 0.28,
+    range: { min: 0.15, max: 0.5, step: 0.01 }, onChange: onPortrait
+  });
+  game.settings.register(MOD, "portraitWhen", {
+    name: "SFP.When.Name", hint: "SFP.When.Hint",
+    scope: "world", config: true, type: String, default: "camera",
+    choices: { camera: "SFP.When.Camera", always: "SFP.When.Always" }, onChange: onPortrait
+  });
   game.settings.register(MOD, "highlight", {
     name: "SFP.Highlight.Name", hint: "SFP.Highlight.Hint",
     scope: "client", config: true, type: Boolean, default: true, onChange
@@ -273,11 +400,14 @@ Hooks.once("ready", () => {
   Voice.start();
   // A mesa pode já ter sido montada antes deste módulo carregar
   Highlight.rebuild();
+  Portrait.rebuild();
 });
 
 Hooks.on("snapframeBuilt", overlay => {
   Highlight.api ??= game.modules.get(BASE)?.api ?? null;
+  Portrait.attach(overlay);
   Highlight.attach(overlay);
 });
-Hooks.on("snapframeLayout", () => Highlight.layout());
-Hooks.on("snapframeDestroy", () => Highlight.detach());
+Hooks.on("snapframeLayout", () => { Highlight.layout(); Portrait.layout(); });
+Hooks.on("snapframeDestroy", () => { Highlight.detach(); Portrait.detach(); });
+Hooks.on("updateUser", (user, changes) => { if ("character" in changes) Portrait.refresh(); });

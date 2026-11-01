@@ -4,6 +4,7 @@ Premium add-on for [SnapFrame](https://github.com/angelomagnoBR/snapframe). Requ
 
 ## Features
 - **Speaker highlight**: glowing frame around whoever is speaking; optionally dims everyone else.
+- **Character portrait**: linked character portrait in a chosen corner of each camera.
 
 ## Local testing
 1. Download `snapframe-premium.zip` from this repo.
